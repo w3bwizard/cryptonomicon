@@ -15,8 +15,9 @@
           >
           <div class="mt-1 relative rounded-md shadow-md">
             <input
-              v-model="tickerName"
+              v-model="input"
               @keypress.enter="addTicker"
+              @input="autocomplete"
               type="text"
               name="wallet"
               id="wallet"
@@ -24,21 +25,19 @@
               placeholder="Например DOGE"
             />
           </div>
-          <div class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap">
-            <span class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
-              BTC
-            </span>
-            <span class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
-              DOGE
-            </span>
-            <span class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
-              BCH
-            </span>
-            <span class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
-              CHD
+          <div 
+            v-if="autoCompleteList.length > 0"
+          class="flex bg-white p-1 rounded-md shadow-md flex-wrap">
+            <span 
+              v-for="coin in autoCompleteList"
+              :key="coin"
+              @click="autocompleteClick(coin)"
+            class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
+              {{coin.symbol}}
             </span>
           </div>
-          <div class="text-sm text-red-600">Такой тикер уже добавлен</div>
+          <div v-if="isUniq === false"
+          class="text-sm text-red-600">Такой тикер уже добавлен</div>
         </div>
       </div>
       <button
@@ -70,7 +69,7 @@
           :class="{'border-4': selTicker === item}"
           v-for="(item, i) in tickersList"
           v-bind:key="item"
-          @click="selTicker = item"
+          @click="selectTicker(item)"
         >
           <div class="px-4 py-5 sm:p-6 text-center">
             <dt class="text-sm font-medium text-gray-500 truncate">
@@ -153,33 +152,56 @@ export default {
   data(){
     return {
       test_var: 666,
-      tickerName: '',
+      input: '',
       tickersList: [],
       selTicker: null,
-      graph: []
+      graph: [],
+      coinList: [],
+      autoCompleteList: [],
+      isUniq: true
     }
+  },
+  created: function() {
+    fetch('https://min-api.cryptocompare.com/data/all/coinlist?summary=true')
+      .then((response) => {
+        return response.json();
+      })
+      .then((data) => {
+        this.coinList = []
+        for (const item in data.Data) {
+          let newCoin = {
+            name: data.Data[item].FullName,
+            symbol: data.Data[item].Symbol
+          }
+          this.coinList.push(newCoin)
+        }
+      });
   },
   methods: {
     addTicker() {
-      if (this.tickerName != '') {
-      let currentTicker = {name: this.tickerName, price: 666}
-        this.tickersList.push(currentTicker)
-        this.tickerName = ''
+      if (this.tickersList.some(ticker => ticker.name.toLowerCase() === this.input.toLowerCase())) {
+        this.isUniq = false
+      } else {
+        let currentTicker = {name: this.input, price: '-'}
+          this.tickersList.push(currentTicker)
+          this.input = ''
 
-        setInterval(() => {
-          fetch(`https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=3461ad4efdb1754b43f74f8b6ac3a83a6362f55e152bcdabf3d2ff1714990abe`)
-            .then((response) => {
-              return response.json();
-            })
-            .then((data) => {
-              console.log(data.USD);
-              this.tickersList.find(item => item.name === currentTicker.name).price = data.USD
+          setInterval(() => {
+            fetch(`https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=3461ad4efdb1754b43f74f8b6ac3a83a6362f55e152bcdabf3d2ff1714990abe`)
+              .then((response) => {
+                return response.json()
+              })
+              .then((data) => {
+                this.tickersList.find(item => item.name === currentTicker.name).price = data.USD
 
-              if (this.selTicker?.name === currentTicker.name) {
-                this.graph.push(data.USD)
-              }
-            });
-        }, 5000)
+                if (this.selTicker?.name === currentTicker.name) {
+                  this.graph.push(data.USD)
+                }
+              });
+          }, 5000)
+
+          this.autoCompleteList = []
+          this.isUniq = true
       }
     },
     delTicker(i) {
@@ -188,12 +210,32 @@ export default {
       }      
       this.tickersList.splice(i, 1)
     },
+    selectTicker(ticker) {
+      this.selTicker = ticker
+      this.graph = []
+    },
     normGraph() {
       const maxValue = Math.max(...this.graph)
       const minValue = Math.min(...this.graph)
         return this.graph.map(
           price => 5 + ((price - minValue) * 95) / (maxValue - minValue)
         )
+    },
+    autocomplete() {
+      if (this.input) {
+        this.isUniq = true
+        this.autoCompleteList = []
+        this.autoCompleteList = this.coinList.filter((coin) => {
+          return coin.name.toLowerCase().indexOf(this.input.toLowerCase()) > -1
+        })
+        this.autoCompleteList = this.autoCompleteList.slice(0, 4)
+      } else {
+        this.autoCompleteList = []
+      }
+    },
+    autocompleteClick(coin) {
+      this.input = coin.symbol
+      this.addTicker()
     }
   }
 }
