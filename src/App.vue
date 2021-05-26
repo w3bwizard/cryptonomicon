@@ -61,13 +61,28 @@
         Добавить
       </button>
     </section>
-    <template v-if="tickersList.length > 0">
+    <template v-if="tickersList.length">
+      <div>Фильтр: 
+        <input v-model="filter" type="text" class="mx-4">
+        Страница: {{ page }}
+        <button 
+        @click="page -= 1"
+        v-if="page > 1"
+        type="button" 
+        class="mx-4 my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">Назад</button>
+        <button 
+        @click="page += 1"
+        v-if="hasNextPage"
+        type="button"
+        class="mx-4 my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">Вперед</button>
+      </div>
+
       <hr class="w-full border-t border-gray-600 my-4" />
       <dl  class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
         <div
           class="bg-white overflow-hidden shadow rounded-lg border-purple-800 border-solid cursor-pointer"
           :class="{'border-4': selTicker === item}"
-          v-for="(item, i) in tickersList"
+          v-for="item in filteredTikers()"
           v-bind:key="item"
           @click="selectTicker(item)"
         >
@@ -158,17 +173,45 @@ export default {
       graph: [],
       coinList: [],
       autoCompleteList: [],
-      isUniq: true
+      isUniq: true,
+      filter: '',
+      page: 1,
+      hasNextPage: false
     }
   },
   created: function() {
+
+    const windowData = Object.fromEntries(new URL(window.location).searchParams.entries())
+
+    // if (windowData.filter) {
+    //   console.log(windowData)
+    // }
+
+    if (windowData.filter) {
+      this.filter = windowData.filter
+    }
+
+    if (windowData.page) {
+      this.page = windowData.page
+    }
+    
+    const localData = localStorage.getItem('cryptoTickersList');
+
+    if (localData) {
+      this.tickersList = JSON.parse(localData)
+
+      this.tickersList.forEach(ticker => {
+        this.subscribeToUpdate(ticker.name)
+      });
+    }
+
     fetch('https://min-api.cryptocompare.com/data/all/coinlist?summary=true')
       .then((response) => {
         return response.json();
       })
       .then((data) => {
         this.coinList = []
-        for (const item in data.Data) {
+        for (let item in data.Data) {
           let newCoin = {
             name: data.Data[item].FullName,
             symbol: data.Data[item].Symbol
@@ -178,30 +221,50 @@ export default {
       });
   },
   methods: {
+    filteredTikers() {
+      const start = (this.page -1) * 6
+      const end = this.page * 6
+      const filteredTikers = this.tickersList
+        .filter(ticker => ticker.name.toLowerCase().includes(this.filter))
+        
+        this.hasNextPage = filteredTikers.length > end;
+
+      return filteredTikers.slice(start, end)
+    },
+    subscribeToUpdate(tickerName) {
+      setInterval(() => {
+        fetch(`https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=3461ad4efdb1754b43f74f8b6ac3a83a6362f55e152bcdabf3d2ff1714990abe`)
+          .then((response) => {
+            return response.json()
+          })
+          .then((data) => {
+            this.tickersList.find(item => item.name === tickerName).price = data.USD
+
+            if (this.selTicker?.name === tickerName) {
+              this.graph.push(data.USD)
+            }
+          });
+      }, 5000)
+    },
     addTicker() {
       if (this.tickersList.some(ticker => ticker.name.toLowerCase() === this.input.toLowerCase())) {
         this.isUniq = false
       } else {
-        let currentTicker = {name: this.input, price: '-'}
-          this.tickersList.push(currentTicker)
-          this.input = ''
+      let currentTicker = {
+        name: this.input, 
+        price: '-'
+        }
+      
+      this.tickersList.push(currentTicker)
+          
+      window.localStorage.setItem('cryptoTickersList', JSON.stringify(this.tickersList));
 
-          setInterval(() => {
-            fetch(`https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=3461ad4efdb1754b43f74f8b6ac3a83a6362f55e152bcdabf3d2ff1714990abe`)
-              .then((response) => {
-                return response.json()
-              })
-              .then((data) => {
-                this.tickersList.find(item => item.name === currentTicker.name).price = data.USD
+      this.subscribeToUpdate(currentTicker.name)
 
-                if (this.selTicker?.name === currentTicker.name) {
-                  this.graph.push(data.USD)
-                }
-              });
-          }, 5000)
-
-          this.autoCompleteList = []
-          this.isUniq = true
+      this.autoCompleteList = []
+      this.isUniq = true
+      this.input = ''
+      this.filter = ''
       }
     },
     delTicker(i) {
@@ -236,6 +299,24 @@ export default {
     autocompleteClick(coin) {
       this.input = coin.symbol
       this.addTicker()
+    }
+  }, 
+  watch: {
+    filter() {
+      this.page = 1
+
+      window.history.pushState(
+        null, 
+        document.title, 
+        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+      )
+    },
+    page() {
+      window.history.pushState(
+        null, 
+        document.title, 
+        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+      )      
     }
   }
 }
