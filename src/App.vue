@@ -162,6 +162,8 @@
 
 <script>
 
+import { test } from "./websockets";
+
 export default {
   name: 'App',
   data(){
@@ -219,6 +221,8 @@ export default {
           this.coinList.push(newCoin)
         }
       });
+
+      test('lolkek')
   },
   methods: {
     filteredTikers() {
