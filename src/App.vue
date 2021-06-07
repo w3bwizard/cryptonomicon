@@ -60,6 +60,25 @@
         </svg>
         Добавить
       </button>
+      <button
+      @click="test()"
+        type="button"
+        class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+      >
+        <!-- Heroicon name: solid/mail -->
+        <svg
+          class="-ml-0.5 mr-2 h-6 w-6"
+          xmlns="http://www.w3.org/2000/svg"
+          width="30"
+          height="30"
+          viewBox="0 0 24 24"
+          fill="#ffffff"
+        >
+          <path
+            d="M13 7h-2v4H7v2h4v4h2v-4h4v-2h-4V7zm-1-5C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"
+          ></path>
+        </svg>
+      </button>      
     </section>
     <template v-if="tickersList.length">
       <div>Фильтр: 
@@ -69,12 +88,14 @@
         @click="page -= 1"
         v-if="page > 1"
         type="button" 
-        class="mx-4 my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">Назад</button>
+        class="mx-4 my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+        Назад</button>
         <button 
         @click="page += 1"
         v-if="hasNextPage"
         type="button"
-        class="mx-4 my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">Вперед</button>
+        class="mx-4 my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+        Вперед</button>
       </div>
 
       <hr class="w-full border-t border-gray-600 my-4" />
@@ -82,7 +103,7 @@
         <div
           class="bg-white overflow-hidden shadow rounded-lg border-purple-800 border-solid cursor-pointer"
           :class="{'border-4': selTicker === item}"
-          v-for="item in filteredTikers()"
+          v-for="item in paginatedTikers"
           v-bind:key="item"
           @click="selectTicker(item)"
         >
@@ -162,7 +183,8 @@
 
 <script>
 
-import { test } from "./websockets";
+// import { test } from "./websockets";
+import { updateTickers } from "./websockets";
 
 export default {
   name: 'App',
@@ -177,11 +199,10 @@ export default {
       autoCompleteList: [],
       isUniq: true,
       filter: '',
-      page: 1,
-      hasNextPage: false
+      page: 1
     }
   },
-  created: function() {
+created: function() {
 
     const windowData = Object.fromEntries(new URL(window.location).searchParams.entries())
 
@@ -194,7 +215,7 @@ export default {
     }
 
     if (windowData.page) {
-      this.page = windowData.page
+      this.page = parseInt(windowData.page)
     }
     
     const localData = localStorage.getItem('cryptoTickersList');
@@ -222,19 +243,49 @@ export default {
         }
       });
 
-      test('lolkek')
+      // test('lolkek')
+  },
+  computed: {
+    startIndex() {
+      return (this.page -1) * 6
+    },
+    endIndex() {
+      return this.page * 6
+    },
+    filteredTikers() {
+      return this.tickersList.filter(ticker => ticker.name.toLowerCase().includes(this.filter.toLowerCase()))
+    },
+    paginatedTikers() {
+      return this.filteredTikers.slice(this.startIndex, this.endIndex)
+    },
+    hasNextPage() {
+      return this.filteredTikers.length > this.endIndex
+    }
+  },
+    watch: {
+    filter() {
+      this.page = 1
+
+      window.history.pushState(
+        null, 
+        document.title, 
+        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+      )
+    },
+    page() {
+      window.history.pushState(
+        null, 
+        document.title, 
+        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+      )      
+    },
+    paginatedTikers() {
+      if (this.paginatedTikers.length === 0 && this.page > 1) {
+        this.page -= 1
+      }
+    }
   },
   methods: {
-    filteredTikers() {
-      const start = (this.page -1) * 6
-      const end = this.page * 6
-      const filteredTikers = this.tickersList
-        .filter(ticker => ticker.name.toLowerCase().includes(this.filter))
-        
-        this.hasNextPage = filteredTikers.length > end;
-
-      return filteredTikers.slice(start, end)
-    },
     subscribeToUpdate(tickerName) {
       setInterval(() => {
         fetch(`https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=3461ad4efdb1754b43f74f8b6ac3a83a6362f55e152bcdabf3d2ff1714990abe`)
@@ -307,24 +358,10 @@ export default {
     autocompleteClick(coin) {
       this.input = coin.symbol
       this.addTicker()
-    }
-  }, 
-  watch: {
-    filter() {
-      this.page = 1
-
-      window.history.pushState(
-        null, 
-        document.title, 
-        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
-      )
     },
-    page() {
-      window.history.pushState(
-        null, 
-        document.title, 
-        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
-      )      
+    test(){
+      this.tickersList = updateTickers(this.tickersList)
+      console.log(this.tickersList)
     }
   }
 }
