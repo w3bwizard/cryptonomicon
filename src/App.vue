@@ -78,6 +78,7 @@
             d="M13 7h-2v4H7v2h4v4h2v-4h4v-2h-4V7zm-1-5C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"
           ></path>
         </svg>
+        TEST
       </button>      
     </section>
     <template v-if="tickersList.length">
@@ -183,8 +184,7 @@
 
 <script>
 
-import { updateTickersPrice } from "./websockets";
-// import { promiseTest } from "./websockets";
+import { updateTickersPrice } from "./api";
 
 export default {
   name: 'App',
@@ -206,9 +206,9 @@ export default {
 
     const windowData = Object.fromEntries(new URL(window.location).searchParams.entries())
 
-    // if (windowData.filter) {
-    //   console.log(windowData)
-    // }
+    setInterval(() => {
+      this.updateTickers()
+    }, 5000)  
 
     if (windowData.filter) {
       this.filter = windowData.filter
@@ -253,7 +253,11 @@ export default {
       return this.page * 6
     },
     filteredTikers() {
-      return  this.tickersList.filter(ticker => ticker.name.toLowerCase().includes(this.filter.toLowerCase()))
+      if (this.tickersList.length > 0) {
+        return  this.tickersList.filter(ticker => ticker.name.toLowerCase().includes(this.filter.toLowerCase()))
+      } else {
+        return []
+      }
     }, 
     paginatedTikers() {
       return this.filteredTikers.slice(this.startIndex, this.endIndex)
@@ -321,7 +325,7 @@ export default {
       window.localStorage.setItem('cryptoTickersList', JSON.stringify(this.tickersList));
 
       // this.subscribeToUpdate(currentTicker.name)
-      this.updateTickers()
+      // this.updateTickers()
 
       this.autoCompleteList = []
       this.isUniq = true
@@ -330,14 +334,12 @@ export default {
       }
     },
     delTicker(i) {
-      console.log(i)
-      console.log(this.tickersList)
-
       this.tickersList = this.tickersList.filter(ticker => JSON.stringify(ticker) != JSON.stringify(i))
 
       if (JSON.stringify(this.selTicker) === JSON.stringify(i)) {
         this.selTicker = null
       }
+      // this.updateTickers()
     },
     selectTicker(ticker) {
       this.selTicker = ticker

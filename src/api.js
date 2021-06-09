@@ -11,6 +11,7 @@ function getSubscribeList(tickersList) {
 }
 
 export function updateTickersPrice(tickersList) {
+    
     const SUBSCRIBE_LIST = getSubscribeList(tickersList)
 
     return new Promise(function(resolve){
@@ -20,26 +21,19 @@ export function updateTickersPrice(tickersList) {
                 return response.json()
             })
             .then((data) => {
-                for (const item in data) {
-                    let newCoin = {
-                        name: item,
-                        price: data[item].USD
+                if (data.Response === 'Error') {
+                    resolve([])
+                } else {
+                    for (const item in data) {
+                        let newCoin = {
+                            name: item,
+                            price: data[item].USD
+                        }
+                        newTickerList.push(newCoin)
                     }
-                    newTickerList.push(newCoin)
+                    resolve(newTickerList)
                 }
-                newTickerList.reverse()
-                resolve(newTickerList)
             })
     })
-}
-
-export function promiseTest(timeout) {
-    if (timeout) {
-        return new Promise(function(resolve) {
-            setTimeout(function(){
-                resolve('i am god!!')
-            }, timeout)
-        })
-    }
 }
 
