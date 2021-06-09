@@ -61,7 +61,7 @@
         Добавить
       </button>
       <button
-      @click="test()"
+      @click="updateTickers()"
         type="button"
         class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
       >
@@ -183,8 +183,8 @@
 
 <script>
 
-// import { test } from "./websockets";
-import { updateTickers } from "./websockets";
+import { updateTickersPrice } from "./websockets";
+// import { promiseTest } from "./websockets";
 
 export default {
   name: 'App',
@@ -202,7 +202,7 @@ export default {
       page: 1
     }
   },
-created: function() {
+  created: function() {
 
     const windowData = Object.fromEntries(new URL(window.location).searchParams.entries())
 
@@ -218,15 +218,15 @@ created: function() {
       this.page = parseInt(windowData.page)
     }
     
-    const localData = localStorage.getItem('cryptoTickersList');
+    // const localData = localStorage.getItem('cryptoTickersList');
 
-    if (localData) {
-      this.tickersList = JSON.parse(localData)
+    // if (localData) {
+    //   this.tickersList = JSON.parse(localData)
 
-      this.tickersList.forEach(ticker => {
-        this.subscribeToUpdate(ticker.name)
-      });
-    }
+    //   this.tickersList.forEach(ticker => {
+    //     this.subscribeToUpdate(ticker.name)
+    //   });
+    // }
 
     fetch('https://min-api.cryptocompare.com/data/all/coinlist?summary=true')
       .then((response) => {
@@ -253,8 +253,8 @@ created: function() {
       return this.page * 6
     },
     filteredTikers() {
-      return this.tickersList.filter(ticker => ticker.name.toLowerCase().includes(this.filter.toLowerCase()))
-    },
+      return  this.tickersList.filter(ticker => ticker.name.toLowerCase().includes(this.filter.toLowerCase()))
+    }, 
     paginatedTikers() {
       return this.filteredTikers.slice(this.startIndex, this.endIndex)
     },
@@ -262,7 +262,7 @@ created: function() {
       return this.filteredTikers.length > this.endIndex
     }
   },
-    watch: {
+  watch: {
     filter() {
       this.page = 1
 
@@ -286,6 +286,12 @@ created: function() {
     }
   },
   methods: {
+    updateTickers() {
+      updateTickersPrice(this.tickersList).then(resolve => {
+        this.tickersList.splice(0, this.tickersList.length)
+        this.tickersList.push(...resolve)
+      })
+    },
     subscribeToUpdate(tickerName) {
       setInterval(() => {
         fetch(`https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=3461ad4efdb1754b43f74f8b6ac3a83a6362f55e152bcdabf3d2ff1714990abe`)
@@ -314,7 +320,8 @@ created: function() {
           
       window.localStorage.setItem('cryptoTickersList', JSON.stringify(this.tickersList));
 
-      this.subscribeToUpdate(currentTicker.name)
+      // this.subscribeToUpdate(currentTicker.name)
+      this.updateTickers()
 
       this.autoCompleteList = []
       this.isUniq = true
@@ -360,8 +367,7 @@ created: function() {
       this.addTicker()
     },
     test(){
-      this.tickersList = updateTickers(this.tickersList)
-      console.log(this.tickersList)
+      this.updateTickers()
     }
   }
 }
