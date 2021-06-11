@@ -103,7 +103,7 @@
       <dl  class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
         <div
           class="bg-white overflow-hidden shadow rounded-lg border-purple-800 border-solid cursor-pointer"
-          :class="{'border-4': selTicker === item}"
+          :class="{'border-4': selTicker?.name === item.name}"
           v-for="item in paginatedTikers"
           v-bind:key="item"
           @click="selectTicker(item)"
@@ -207,7 +207,8 @@ export default {
     const windowData = Object.fromEntries(new URL(window.location).searchParams.entries())
 
     setInterval(() => {
-      this.updateTickers()
+      this.updateTickers()   
+      // this.updateGraph()
     }, 5000)  
 
     if (windowData.filter) {
@@ -218,15 +219,11 @@ export default {
       this.page = parseInt(windowData.page)
     }
     
-    // const localData = localStorage.getItem('cryptoTickersList');
+    const localData = localStorage.getItem('cryptoTickersList');
 
-    // if (localData) {
-    //   this.tickersList = JSON.parse(localData)
-
-    //   this.tickersList.forEach(ticker => {
-    //     this.subscribeToUpdate(ticker.name)
-    //   });
-    // }
+    if (localData) {
+      this.tickersList = JSON.parse(localData)
+    }
 
     fetch('https://min-api.cryptocompare.com/data/all/coinlist?summary=true')
       .then((response) => {
@@ -287,14 +284,24 @@ export default {
       if (this.paginatedTikers.length === 0 && this.page > 1) {
         this.page -= 1
       }
+    },
+    tickersList() {
+      console.log('Переписываем localStorage')
+      window.localStorage.setItem('cryptoTickersList', JSON.stringify(this.tickersList));
     }
   },
   methods: {
     updateTickers() {
       updateTickersPrice(this.tickersList).then(resolve => {
-        this.tickersList.splice(0, this.tickersList.length)
-        this.tickersList.push(...resolve)
+        this.tickersList.splice(0, this.tickersList.length, ...resolve)
+        if (this.selTicker) {
+          this.updateGraph(this.tickersList.find(element => element.name === this.selTicker?.name).price)
+        }
       })
+    },
+    updateGraph(price) {
+        price > 1 ? price.toFixed(2) : price.toPrecision(2);
+        this.graph.push(price)
     },
     subscribeToUpdate(tickerName) {
       setInterval(() => {
@@ -316,16 +323,11 @@ export default {
         this.isUniq = false
       } else {
       let currentTicker = {
-        name: this.input, 
+        name: this.input.toUpperCase(), 
         price: '-'
         }
       
-      this.tickersList.push(currentTicker)
-          
-      window.localStorage.setItem('cryptoTickersList', JSON.stringify(this.tickersList));
-
-      // this.subscribeToUpdate(currentTicker.name)
-      // this.updateTickers()
+      this.tickersList = [...this.tickersList, currentTicker]
 
       this.autoCompleteList = []
       this.isUniq = true
@@ -348,6 +350,11 @@ export default {
     normGraph() {
       const maxValue = Math.max(...this.graph)
       const minValue = Math.min(...this.graph)
+
+        // if (minValue === maxValue) {
+        //   return 50
+        // }
+
         return this.graph.map(
           price => 5 + ((price - minValue) * 95) / (maxValue - minValue)
         )
