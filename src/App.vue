@@ -294,7 +294,7 @@ export default {
     updateTickers() {
       updateTickersPrice(this.tickersList).then(resolve => {
         this.tickersList.splice(0, this.tickersList.length, ...resolve)
-        if (this.selTicker) {
+        if (this.selTicker != null) {
           this.updateGraph(this.tickersList.find(element => element.name === this.selTicker?.name).price)
         }
       })
@@ -335,13 +335,11 @@ export default {
       this.filter = ''
       }
     },
-    delTicker(i) {
-      this.tickersList = this.tickersList.filter(ticker => JSON.stringify(ticker) != JSON.stringify(i))
-
-      if (JSON.stringify(this.selTicker) === JSON.stringify(i)) {
-        this.selTicker = null
+    delTicker(tickerToRemove) {
+      this.tickersList = this.tickersList.filter(ticker => ticker != tickerToRemove)  
+      if (this.selTicker?.name === tickerToRemove.name) {
+        this.selectTicker(null)
       }
-      // this.updateTickers()
     },
     selectTicker(ticker) {
       this.selTicker = ticker
@@ -350,10 +348,6 @@ export default {
     normGraph() {
       const maxValue = Math.max(...this.graph)
       const minValue = Math.min(...this.graph)
-
-        // if (minValue === maxValue) {
-        //   return 50
-        // }
 
         return this.graph.map(
           price => 5 + ((price - minValue) * 95) / (maxValue - minValue)
