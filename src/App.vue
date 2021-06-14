@@ -61,7 +61,7 @@
         Добавить
       </button>
       <button
-      @click="updateTickers()"
+      @click="test()"
         type="button"
         class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
       >
@@ -184,6 +184,13 @@
 
 <script>
 
+// Проблемы
+// - Ошибки при получении данных с сервера не обрабатываются
+// - Нет понимания как рефакторить дальше код
+// - Логика метода autoComplete разбросана по другим методам
+// - watch-и filter и page делают примерно одно и то же, к тому же активируют друг гдуга
+// - Флаг isUniqTicker по логике должен быть computed-ом но сделать его таким не получается
+// - Слежение за 
 
 import { updateTickersPrice } from "./api";
 
@@ -208,17 +215,13 @@ export default {
 
     const windowData = Object.fromEntries(new URL(window.location).searchParams.entries())
 
-    setInterval(() => {
-      this.updateTickers()   
-    }, 5000)  
-
     if (windowData.filter) {
       this.filter = windowData.filter
     }
 
     if (windowData.page) {
       this.page = parseInt(windowData.page)
-    }
+    } 
     
     const localData = localStorage.getItem('cryptoTickersList');
 
@@ -240,6 +243,10 @@ export default {
           this.coinList.push(newCoin)
         }
       });
+
+    setInterval(() => {
+      this.updateTickers()   
+    }, 5000)     
   },
   computed: {
     startIndex() {
@@ -260,9 +267,10 @@ export default {
     },
     hasNextPage() {
       return this.filteredTikers.length > this.endIndex
-    }
+    } 
   },
   watch: {
+  //Обьеденить функции в одну (от сюда)
     filter() {
       this.page = 1
 
@@ -279,6 +287,7 @@ export default {
         `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
       )      
     },
+  //До сюда
     paginatedTikers() {
       if (this.paginatedTikers.length === 0 && this.page > 1) {
         this.page -= 1
@@ -300,21 +309,6 @@ export default {
     updateGraph(price) {
         price > 1 ? price.toFixed(2) : price.toPrecision(2);
         this.graph.push(price)
-    },
-    subscribeToUpdate(tickerName) {
-      setInterval(() => {
-        fetch(`https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=3461ad4efdb1754b43f74f8b6ac3a83a6362f55e152bcdabf3d2ff1714990abe`)
-          .then((response) => {
-            return response.json()
-          })
-          .then((data) => {
-            this.tickersList.find(item => item.name === tickerName).price = data.USD
-
-            if (this.selTicker?.name === tickerName) {
-              this.graph.push(data.USD)
-            }
-          });
-      }, 5000)
     },
     addTicker() {
       if (this.tickersList.some(ticker => ticker.name.toLowerCase() === this.input.toLowerCase())) {
@@ -359,10 +353,9 @@ export default {
       if (this.input) {
         this.isUniqTicker = true
         this.autoCompleteList = []
-        this.autoCompleteList = this.coinList.filter((coin) => {
-          return coin.name.toLowerCase().indexOf(this.input.toLowerCase()) > -1
-        })
-        this.autoCompleteList = this.autoCompleteList.slice(0, 4)
+        this.autoCompleteList = this.coinList.filter(coin => {
+          return coin.name.toLowerCase().includes(this.input.toLowerCase())
+        }).slice(0, 4)
       } else {
         this.autoCompleteList = []
       }
@@ -372,7 +365,7 @@ export default {
       this.addTicker()
     },
     test(){
-      this.updateTickers()
+      // console.log(this.uniqTicker())
     }
   }
 }
