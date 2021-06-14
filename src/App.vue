@@ -36,7 +36,7 @@
               {{coin.symbol}}
             </span>
           </div>
-          <div v-if="isUniq === false"
+          <div v-if="isUniqTicker === false"
           class="text-sm text-red-600">Такой тикер уже добавлен</div>
         </div>
       </div>
@@ -184,21 +184,23 @@
 
 <script>
 
+
 import { updateTickersPrice } from "./api";
 
 export default {
   name: 'App',
   data(){
     return {
-      test_var: 666,
       input: '',
+      filter: '',
+
       tickersList: [],
-      selTicker: null,
       graph: [],
       coinList: [],
+
+      selTicker: null,
       autoCompleteList: [],
-      isUniq: true,
-      filter: '',
+      isUniqTicker: true,
       page: 1
     }
   },
@@ -208,7 +210,6 @@ export default {
 
     setInterval(() => {
       this.updateTickers()   
-      // this.updateGraph()
     }, 5000)  
 
     if (windowData.filter) {
@@ -239,8 +240,6 @@ export default {
           this.coinList.push(newCoin)
         }
       });
-
-      // test('lolkek')
   },
   computed: {
     startIndex() {
@@ -286,7 +285,6 @@ export default {
       }
     },
     tickersList() {
-      console.log('Переписываем localStorage')
       window.localStorage.setItem('cryptoTickersList', JSON.stringify(this.tickersList));
     }
   },
@@ -320,7 +318,7 @@ export default {
     },
     addTicker() {
       if (this.tickersList.some(ticker => ticker.name.toLowerCase() === this.input.toLowerCase())) {
-        this.isUniq = false
+        this.isUniqTicker = false
       } else {
       let currentTicker = {
         name: this.input.toUpperCase(), 
@@ -330,7 +328,7 @@ export default {
       this.tickersList = [...this.tickersList, currentTicker]
 
       this.autoCompleteList = []
-      this.isUniq = true
+      this.isUniqTicker = true
       this.input = ''
       this.filter = ''
       }
@@ -349,13 +347,17 @@ export default {
       const maxValue = Math.max(...this.graph)
       const minValue = Math.min(...this.graph)
 
+        if (minValue === maxValue) {
+          return this.graph.map(() => 50)
+        }
+
         return this.graph.map(
           price => 5 + ((price - minValue) * 95) / (maxValue - minValue)
         )
     },
     autocomplete() {
       if (this.input) {
-        this.isUniq = true
+        this.isUniqTicker = true
         this.autoCompleteList = []
         this.autoCompleteList = this.coinList.filter((coin) => {
           return coin.name.toLowerCase().indexOf(this.input.toLowerCase()) > -1
