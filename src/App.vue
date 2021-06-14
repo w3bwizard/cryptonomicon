@@ -192,7 +192,7 @@
 // - Флаг isUniqTicker по логике должен быть computed-ом но сделать его таким не получается
 // - Слежение за 
 
-import { updateTickersPrice } from "./api";
+import { updateTickersPrice, ws_test } from "./api";
 
 export default {
   name: 'App',
@@ -365,7 +365,7 @@ export default {
       this.addTicker()
     },
     test(){
-      // console.log(this.uniqTicker())
+      ws_test()
     }
   }
 }
