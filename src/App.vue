@@ -190,9 +190,9 @@
 // - Логика метода autoComplete разбросана по другим методам
 // - watch-и filter и page делают примерно одно и то же, к тому же активируют друг гдуга
 // - Флаг isUniqTicker по логике должен быть computed-ом но сделать его таким не получается
-// - Слежение за 
 
-import { updateTickersPrice, ws_test } from "./api";
+
+import { subscribeToTicker, unsubscribeFromTicker } from "./api";
 
 export default {
   name: 'App',
@@ -243,10 +243,11 @@ export default {
           this.coinList.push(newCoin)
         }
       });
-
-    setInterval(() => {
-      this.updateTickers()   
-    }, 5000)     
+    
+    this.tickersList.map(ticker => {
+      subscribeToTicker(ticker.name, this.updateTicker)
+    })
+    
   },
   computed: {
     startIndex() {
@@ -298,12 +299,12 @@ export default {
     }
   },
   methods: {
-    updateTickers() {
-      updateTickersPrice(this.tickersList).then(resolve => {
-        this.tickersList.splice(0, this.tickersList.length, ...resolve)
-        if (this.selTicker != null) {
-          this.updateGraph(this.tickersList.find(element => element.name === this.selTicker?.name).price)
+    updateTicker(tickerName, newPrice) {
+      this.tickersList.filter(ticker => ticker.name === tickerName).forEach(ticker => {
+        if (ticker === this.selTicker) {
+          this.graph.push(newPrice)
         }
+        ticker.price = newPrice
       })
     },
     updateGraph(price) {
@@ -320,6 +321,7 @@ export default {
         }
       
       this.tickersList = [...this.tickersList, currentTicker]
+      subscribeToTicker(currentTicker.name, this.updateTicker)
 
       this.autoCompleteList = []
       this.isUniqTicker = true
@@ -332,6 +334,7 @@ export default {
       if (this.selTicker?.name === tickerToRemove.name) {
         this.selectTicker(null)
       }
+      unsubscribeFromTicker(tickerToRemove.name)
     },
     selectTicker(ticker) {
       this.selTicker = ticker
@@ -365,7 +368,10 @@ export default {
       this.addTicker()
     },
     test(){
-      ws_test()
+      // ws_test()
+      // subscribeToTicker('test', (message) => {
+      //   console.log('message from cb: ', message)
+      // })
     }
   }
 }

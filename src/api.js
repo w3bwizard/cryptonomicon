@@ -1,63 +1,64 @@
 const API_KEY = '74eea2552d64bb162020979867150f7c48bd83b30c10b95afae842e42ae12384'
+const tickersHandlers = new Map()
+const socket = new WebSocket(`wss://streamer.cryptocompare.com/v2?api_key=${API_KEY}`);
 
-function getSubscribeList(tickersList) {
-    if (tickersList.length > 0) {
-        return  tickersList.map(function(element){
-            return element.name.toUpperCase()
-        }).join(',')
-    } else {
-        return ''
+
+socket.onmessage = function(event) {
+    let price = JSON.parse(event.data)
+    if (price.TYPE === '5' && price.PRICE != undefined) {
+        const handler = tickersHandlers.get(price.FROMSYMBOL)
+        handler(price.FROMSYMBOL, price.PRICE)
+        let data = [price.FROMSYMBOL, price.PRICE]
+        console.log(data)
     }
 }
 
-export function updateTickersPrice(tickersList) {
+function sendToWS(msg){
+    const stringifiedMsg = JSON.stringify(msg)
+
+    if (socket.readyState === WebSocket.OPEN) {
+        socket.send(stringifiedMsg);
+        return;
+      }
     
-    const SUBSCRIBE_LIST = getSubscribeList(tickersList)
-
-    return new Promise(function(resolve){
-        if (SUBSCRIBE_LIST != ''){
-            let newTickerList = []
-            fetch(`https://min-api.cryptocompare.com/data/pricemulti?fsyms=${SUBSCRIBE_LIST}&tsyms=USD&api_key=3461ad4efdb1754b43f74f8b6ac3a83a6362f55e152bcdabf3d2ff1714990abe`)
-                .then((response) => {
-                    return response.json()
-                })
-                .then((data) => {
-                    if (data.Response === 'Error') {
-                        resolve([])
-                    } else {
-                        for (const item in data) {
-                            let newCoin = {
-                                name: item,
-                                price: data[item].USD
-                            }
-                            newTickerList.push(newCoin)
-                        }
-                        resolve(newTickerList)
-                    }
-                })
-        }
-    })
+      socket.addEventListener(
+        "open",
+        () => {
+          socket.send(stringifiedMsg);
+        },
+        { once: true }
+      );
+        
 }
 
-export function ws_test() {
-    let socket = new WebSocket(`wss://streamer.cryptocompare.com/v2?api_key=${API_KEY}`);
-
-    socket.onopen = function() {
-        let msg = {
-            action: 'SubAdd',
-            subs: ['5~CCCAGG~BTC~USD']
+function subscribeToTickerOnWS(tickerName){
+    sendToWS(
+        {
+        action: 'SubAdd',
+        subs: [`5~CCCAGG~${tickerName}~USD`]
         }
-        console.log('socket open')
-        socket.send(JSON.stringify(msg))
-    }
-
-    socket.onmessage = function(event) {
-        console.log(`Данные сервера: ${event.data}`)
-        let price = JSON.parse(event.data)
-        if (price.TYPE === '5' && price.PRICE != undefined) {
-            let data = [price.FROMSYMBOL, price.PRICE]
-            console.log(data)
-        }
-    }
+    )
 }
+
+function unsubscribeFromTickerOnWS(tickerName){
+    sendToWS(
+        {
+        action: 'SubRemove',
+        subs: [`5~CCCAGG~${tickerName}~USD`]
+        }
+    )
+}
+
+export function subscribeToTicker(tickerName, cb) {
+    tickersHandlers.set(tickerName, cb)
+    subscribeToTickerOnWS(tickerName)
+}
+
+export function unsubscribeFromTicker(tickerName) {
+    tickersHandlers.delete(tickerName)
+    unsubscribeFromTickerOnWS(tickerName)    
+}
+
+window.tickers = tickersHandlers
+
 
