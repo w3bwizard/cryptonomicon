@@ -3,14 +3,45 @@ const tickersHandlers = new Map()
 const socket = new WebSocket(`wss://streamer.cryptocompare.com/v2?api_key=${API_KEY}`);
 
 
+socket.onopen = function() {
+    sendToWS(
+        {
+        action: 'SubAdd',
+        subs: ['5~CCCAGG~BTC~USD']
+        }
+    )
+}
+
 socket.onmessage = function(event) {
-    let price = JSON.parse(event.data)
-    if (price.TYPE === '5' && price.PRICE != undefined) {
-        const handler = tickersHandlers.get(price.FROMSYMBOL)
-        handler(price.FROMSYMBOL, price.PRICE)
-        let data = [price.FROMSYMBOL, price.PRICE]
-        console.log(data)
+    let message = JSON.parse(event.data)
+    
+    
+    if (message.TYPE === '5' 
+        && tickersHandlers.has(message.FROMSYMBOL) 
+        && message.TOSYMBOL === 'USD') {
+        const handler = tickersHandlers.get(message.FROMSYMBOL)
+        handler(message.FROMSYMBOL, message.PRICE)
     }
+    if (message.TYPE === '5' 
+        && message.FROMSYMBOL === 'BTC') {
+        socket.BtcPrice = message.PRICE
+    }
+    if (message.TYPE === '500' 
+        && message.MESSAGE === 'INVALID_SUB') {
+        console.log(message.PARAMETER)
+        subscribeToTickerOnWSToBTC(getSymbolFromParametr(message.PARAMETER))
+    }
+    if (message.TYPE === '5' 
+        && message.TOSYMBOL === 'BTC') {
+        console.log(message.FROMSYMBOL, message.PRICE)
+    }
+}
+
+function getSymbolFromParametr(parameter) {
+    // let re = new RegExp('5~CCCAGG~([\\s\\S]*)~USD')
+    // let match = re.exec(parameter)
+    // return match[1]
+    return parameter.substring(parameter.lastIndexOf('CCCAGG~')+1,parameter.lastIndexOf('~USD'))
 }
 
 function sendToWS(msg){
@@ -29,6 +60,15 @@ function sendToWS(msg){
         { once: true }
       );
         
+}
+
+function subscribeToTickerOnWSToBTC(tickerName){
+    sendToWS(
+        {
+        action: 'SubAdd',
+        subs: [`5~CCCAGG~${tickerName}~BTC`]
+        }
+    )
 }
 
 function subscribeToTickerOnWS(tickerName){

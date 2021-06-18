@@ -190,7 +190,7 @@
 // - Логика метода autoComplete разбросана по другим методам
 // - watch-и filter и page делают примерно одно и то же, к тому же активируют друг гдуга
 // - Флаг isUniqTicker по логике должен быть computed-ом но сделать его таким не получается
-
+// - Не все валюты из списка автозаполнения можно получить через вебсокет
 
 import { subscribeToTicker, unsubscribeFromTicker } from "./api";
 
@@ -229,7 +229,7 @@ export default {
       this.tickersList = JSON.parse(localData)
     }
 
-    fetch('https://min-api.cryptocompare.com/data/all/coinlist?summary=true')
+    fetch('https://min-api.cryptocompare.com/data/all/coinlist')
       .then((response) => {
         return response.json();
       })
