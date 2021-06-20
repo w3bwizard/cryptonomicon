@@ -4,6 +4,8 @@ const tickersHandlersBTC = new Map()
 const socket = new WebSocket(`wss://streamer.cryptocompare.com/v2?api_key=${API_KEY}`);
 
 // Если добавить тикер BTC и потом удалить, то удаляется фоновая подписка на BTC для курса обмена
+// + подписки начинают добавлятся в геометрической прогрессии
+// - socket.BtcPrices не сохраняется цена битка 
 
 socket.onopen = function() {
     sendToWS(
@@ -31,12 +33,13 @@ socket.onmessage = function(event) {
     if (message.TYPE === '500' 
         && message.MESSAGE === 'INVALID_SUB') {
         subscribeToTickerByBTC(message.PARAMETER, socket.TickerListUpdater)
+        console.log(message.PARAMETER)
     }
     if (message.TYPE === '5' 
         && tickersHandlersBTC.has(message.FROMSYMBOL)
         && message.TOSYMBOL === 'BTC') {
         const handler = tickersHandlersBTC.get(message.FROMSYMBOL)
-        handler(message.FROMSYMBOL, message.PRICE)
+        handler(message.FROMSYMBOL, GetPriceInUSDFromBTC(message.PRICE))
         // console.log(message.FROMSYMBOL, message.PRICE)
     }
 }
@@ -59,12 +62,26 @@ function sendToWS(msg){
         
 }
 
+function GetPriceInUSDFromBTC(priceInBTC) {
+    console.log('socket.BtcPrices', socket.BtcPrices)
+    const USD_IN_BTC = 1 / socket.BtcPrices
+    // return  (USD_IN_BTC * priceInBTC).toPrecision(3)
+    return  (USD_IN_BTC * priceInBTC)
+}
+
 function getCoinNameFromParameter(parameter) {
-    if (parameter.indexOf('5~CCCAGG~') != -1) {
+    // console.log(parameter)
+    // console.log('5~CCCAGG~', parameter.indexOf('5~CCCAGG~')+ '5~CCCAGG~'.length)
+    console.log('~USD', parameter.indexOf('~USD'))
+    console.log('check', parameter.indexOf('5~CCCAGG~') != -1 &&  parameter.indexOf('~USD') != -1)
+    // console.log('coin_name', parameter.slice(parameter.indexOf('5~CCCAGG~')+ '5~CCCAGG~'.length, parameter.indexOf('~USD')))
+    if (parameter.indexOf('5~CCCAGG~') != -1 && parameter.indexOf('~USD') != -1  ) {
         const FROM_INDEX = parameter.indexOf('5~CCCAGG~') + '5~CCCAGG~'.length
+        // console.log('FROM_INDEX', FROM_INDEX)
         const TO_INDEX = parameter.indexOf('~USD')
+        // console.log('TO_INDEX', TO_INDEX)
         const COIN_NAME = parameter.slice(FROM_INDEX, TO_INDEX)
-        
+        // console.log('COIN_NAME', COIN_NAME)
         return COIN_NAME
     } else {
         return null
@@ -72,6 +89,7 @@ function getCoinNameFromParameter(parameter) {
 }
 
 function subscribeToTickerOnWSByBTC(tickerName){
+    console.log('subscribeToTickerOnWSByBTC', tickerName)
     sendToWS(
         {
         action: 'SubAdd',
@@ -109,6 +127,7 @@ function unsubscribeFromTickerOnWS(tickerName){
 
 function subscribeToTickerByBTC(parameter, cb) {
     const TICKER_NAME = getCoinNameFromParameter(parameter)
+    console.log('TICKER_NAME', TICKER_NAME)
     if (TICKER_NAME) {
         tickersHandlersBTC.set(TICKER_NAME, cb)
         subscribeToTickerOnWSByBTC(TICKER_NAME)
@@ -132,7 +151,12 @@ export function unsubscribeFromTicker(tickerName) {
     }
 }
 
+export function close () {
+    socket.close()
+}
+
 window.tickers = tickersHandlersBTC
 window.GetCoinName = getCoinNameFromParameter
+window.test = GetPriceInUSDFromBTC
 
 

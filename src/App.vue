@@ -192,7 +192,7 @@
 // - Флаг isUniqTicker по логике должен быть computed-ом но сделать его таким не получается
 // - Не все валюты из списка автозаполнения можно получить через вебсокет
 
-import { subscribeToTicker, unsubscribeFromTicker } from "./api";
+import { subscribeToTicker, unsubscribeFromTicker, close } from "./api";
 
 export default {
   name: 'App',
@@ -368,10 +368,7 @@ export default {
       this.addTicker()
     },
     test(){
-      // ws_test()
-      // subscribeToTicker('test', (message) => {
-      //   console.log('message from cb: ', message)
-      // })
+      close()
     }
   }
 }
