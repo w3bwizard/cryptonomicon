@@ -17,7 +17,6 @@
             <input
               v-model="input"
               @keypress.enter="addTicker"
-              @input="autocomplete"
               type="text"
               name="wallet"
               id="wallet"
@@ -26,17 +25,16 @@
             />
           </div>
           <div 
-            v-if="autoCompleteList.length > 0"
+          v-if="autocomplete.length"
           class="flex bg-white p-1 rounded-md shadow-md flex-wrap">
             <span 
-              v-for="coin in autoCompleteList"
+              v-for="coin in autocomplete"
               :key="coin"
-              @click="autocompleteClick(coin)"
             class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
               {{coin.symbol}}
             </span>
           </div>
-          <div v-if="isUniqTicker === false"
+          <div
           class="text-sm text-red-600">Такой тикер уже добавлен</div>
         </div>
       </div>
@@ -103,7 +101,7 @@
       <dl  class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
         <div
           class="bg-white overflow-hidden shadow rounded-lg border-purple-800 border-solid cursor-pointer"
-          :class="{'border-4': selTicker?.name === item.name}"
+          :class="{'border-4': selTicker?.name === item.name, 'bg-red-300': item?.valid === false}"
           v-for="item in paginatedTikers"
           v-bind:key="item"
           @click="selectTicker(item)"
@@ -185,14 +183,15 @@
 <script>
 
 // Проблемы
+// - добавляемые монеты никак не валидируются
+// - Логика метода autoComplete разбросана по другим методам
 // - Ошибки при получении данных с сервера не обрабатываются
 // - Нет понимания как рефакторить дальше код
-// - Логика метода autoComplete разбросана по другим методам
 // - watch-и filter и page делают примерно одно и то же, к тому же активируют друг гдуга
 // - Флаг isUniqTicker по логике должен быть computed-ом но сделать его таким не получается
 // - Не все валюты из списка автозаполнения можно получить через вебсокет
 
-import { subscribeToTicker, unsubscribeFromTicker } from "./api";
+import { subscribeToTicker, unsubscribeFromTicker, getCoinList, getAutoComplete, validate } from "./api";
 
 export default {
   name: 'App',
@@ -203,15 +202,15 @@ export default {
 
       tickersList: [],
       graph: [],
-      coinList: [],
 
       selTicker: null,
-      autoCompleteList: [],
-      isUniqTicker: true,
+      // isUniqTicker: true,
       page: 1
     }
   },
   created: function() {
+
+    getCoinList()
 
     const windowData = Object.fromEntries(new URL(window.location).searchParams.entries())
 
@@ -229,21 +228,6 @@ export default {
       this.tickersList = JSON.parse(localData)
     }
 
-    fetch('https://min-api.cryptocompare.com/data/all/coinlist')
-      .then((response) => {
-        return response.json();
-      })
-      .then((data) => {
-        this.coinList = []
-        for (let item in data.Data) {
-          let newCoin = {
-            name: data.Data[item].FullName,
-            symbol: data.Data[item].Symbol
-          }
-          this.coinList.push(newCoin)
-        }
-      });
-    
     this.tickersList.map(ticker => {
       subscribeToTicker(ticker.name, this.updateTicker)
     })
@@ -268,7 +252,10 @@ export default {
     },
     hasNextPage() {
       return this.filteredTikers.length > this.endIndex
-    } 
+    },
+    autocomplete() {
+      return getAutoComplete(this.input)
+    },
   },
   watch: {
   //Обьеденить функции в одну (от сюда)
@@ -299,12 +286,13 @@ export default {
     }
   },
   methods: {
-    updateTicker(tickerName, newPrice) {
+    updateTicker(tickerName, price, valid = true) {
       this.tickersList.filter(ticker => ticker.name === tickerName).forEach(ticker => {
         if (ticker === this.selTicker) {
-          this.graph.push(newPrice)
+          this.graph.push(price)
         }
-        ticker.price = newPrice
+        ticker.price = price
+        ticker.valid = valid
       })
     },
     updateGraph(price) {
@@ -312,16 +300,14 @@ export default {
         this.graph.push(price)
     },
     addTicker() {
-      if (this.tickersList.some(ticker => ticker.name.toLowerCase() === this.input.toLowerCase())) {
-        this.isUniqTicker = false
-      } else {
       let currentTicker = {
         name: this.input.toUpperCase(), 
-        price: '-'
+        price: '-',
+        valid: true
         }
       
       this.tickersList = [...this.tickersList, currentTicker]
-      subscribeToTicker(currentTicker.name, this.updateTicker)
+      validate(currentTicker.name, this.updateTicker)
 
       this.autoCompleteList = []
       this.isUniqTicker = true
@@ -352,28 +338,27 @@ export default {
           price => 5 + ((price - minValue) * 95) / (maxValue - minValue)
         )
     },
-    autocomplete() {
-      if (this.input) {
-        this.isUniqTicker = true
-        this.autoCompleteList = []
-        this.autoCompleteList = this.coinList.filter(coin => {
-          return coin.name.toLowerCase().includes(this.input.toLowerCase())
-        }).slice(0, 4)
-      } else {
-        this.autoCompleteList = []
-      }
-    },
-    autocompleteClick(coin) {
-      this.input = coin.symbol
-      this.addTicker()
-    },
+    // autocomplete() {
+    //   if (this.input) {
+    //     this.isUniqTicker = true
+    //     this.autoCompleteList = []
+    //     this.autoCompleteList = this.coinList.filter(coin => {
+    //       return coin.name.toLowerCase().includes(this.input.toLowerCase())
+    //     }).slice(0, 4)
+    //   } else {
+    //     this.autoCompleteList = []
+    //   }
+    // },
+    // autocompleteClick(coin) {
+    //   this.input = coin.symbol
+    //   this.addTicker()
+    // },
     test(){
       // ws_test()
       // subscribeToTicker('test', (message) => {
       //   console.log('message from cb: ', message)
       // })
     }
-  }
 }
 </script>
 

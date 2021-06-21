@@ -1,7 +1,29 @@
+// validation scheme
+    //validate by coin list
+        // - valid
+            // - validate by subscribe to usd
+                // - valid
+                    // - subscribe to usd
+                // - invalid 
+                    // - validate by subscribe to btc
+                        // - valid 
+                            // - subscribe to btc
+                        // - invalid
+                            // - set invalid status
+        // - invalid 
+            // - set invalid status
+
+// Проблемы автодополнения
+// - При добавлени невалидного тикера, вебсокет сходит с ума
+// - Невалидные тикеры не удаляются
+// - Если начать печатать сразу после загрузки страницы, список монет не успевает загрузится
+//   и автодополнение не срабатывает
+// - Нужно научится пользоватся scync aweit
+
 const API_KEY = '74eea2552d64bb162020979867150f7c48bd83b30c10b95afae842e42ae12384'
 const tickersHandlers = new Map()
 const socket = new WebSocket(`wss://streamer.cryptocompare.com/v2?api_key=${API_KEY}`);
-
+const coinList = []
 
 socket.onopen = function() {
     sendToWS(
@@ -14,7 +36,6 @@ socket.onopen = function() {
 
 socket.onmessage = function(event) {
     let message = JSON.parse(event.data)
-    
     
     if (message.TYPE === '5' 
         && tickersHandlers.has(message.FROMSYMBOL) 
@@ -99,6 +120,60 @@ export function unsubscribeFromTicker(tickerName) {
     unsubscribeFromTickerOnWS(tickerName)    
 }
 
+export function getCoinList() {
+    fetch('https://min-api.cryptocompare.com/data/all/coinlist')
+    .then((response) => {
+    return response.json();
+    })
+    .then((data) => {
+    if (data) {
+        coinList.slice(0, coinList.length)
+        for (let item in data.Data) {
+            let newCoin = {
+            name: data.Data[item].FullName,
+            symbol: data.Data[item].Symbol
+            }
+            coinList.push(newCoin)
+        }
+    }
+    });    
+}
+
+export function getAutoComplete(tickerName) {
+    if (tickerName && coinList.length > 0) {
+    let result = coinList.filter(coin => {
+        return coin.name.toLowerCase().includes(tickerName.toLowerCase())
+    }).slice(0, 4)
+        return result
+    }else {
+        return []
+    }
+}
+
+export function validate(tickerName, cb) {
+    if (validateByCoinList(tickerName)) {
+        subscribeToTicker(tickerName, cb)
+    } else {
+        cb(tickerName, '-', false)
+    }
+}
+
+function validateByCoinList(tickerName) {
+    if (tickerName && coinList.length > 0) {
+        let result = false
+
+        if (coinList.find(coin => {
+            return coin.symbol.toLowerCase() === tickerName.toLowerCase()
+        })) {
+            result = true
+        } else {
+            result = false
+        }
+        return result
+    }
+}
+
 window.tickers = tickersHandlers
+window.coinList = coinList
 
 
