@@ -354,10 +354,7 @@ export default {
     //   this.addTicker()
     // },
     test(){
-      // ws_test()
-      // subscribeToTicker('test', (message) => {
-      //   console.log('message from cb: ', message)
-      // })
+      close()
     }
 }
 </script>
