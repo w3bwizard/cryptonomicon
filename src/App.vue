@@ -35,7 +35,8 @@
             </span>
           </div>
           <div
-          class="text-sm text-red-600">Такой тикер уже добавлен</div>
+          :class="{invisible: isUniqTicker === true}"
+          class="text-sm text-red-600 ">Такой тикер уже добавлен</div>
         </div>
       </div>
       <button
@@ -184,12 +185,13 @@
 
 // Проблемы
 // - добавляемые монеты никак не валидируются
-// - Логика метода autoComplete разбросана по другим методам
+// + Логика метода autoComplete разбросана по другим методам
 // - Ошибки при получении данных с сервера не обрабатываются
-// - Нет понимания как рефакторить дальше код
+// + Нет понимания как рефакторить дальше код
 // - watch-и filter и page делают примерно одно и то же, к тому же активируют друг гдуга
 // - Флаг isUniqTicker по логике должен быть computed-ом но сделать его таким не получается
 // - Не все валюты из списка автозаполнения можно получить через вебсокет
+// - Тикеры не удаляются
 
 import { subscribeToTicker, unsubscribeFromTicker, getCoinList, getAutoComplete, validate } from "./api";
 
@@ -204,7 +206,7 @@ export default {
       graph: [],
 
       selTicker: null,
-      // isUniqTicker: true,
+      isUniqTicker: true,
       page: 1
     }
   },
@@ -231,7 +233,6 @@ export default {
     this.tickersList.map(ticker => {
       subscribeToTicker(ticker.name, this.updateTicker)
     })
-    
   },
   computed: {
     startIndex() {
@@ -255,7 +256,7 @@ export default {
     },
     autocomplete() {
       return getAutoComplete(this.input)
-    },
+    }
   },
   watch: {
   //Обьеденить функции в одну (от сюда)
@@ -283,9 +284,23 @@ export default {
     },
     tickersList() {
       window.localStorage.setItem('cryptoTickersList', JSON.stringify(this.tickersList));
+    },
+    input() {
+      if (this.uniqTicker(this.input)) {
+        this.isUniqTicker = true
+      }
     }
   },
   methods: {
+    uniqTicker(tickerName) {
+      if (this.tickersList.find(ticker => {
+        return ticker.name.toLowerCase() === tickerName.toLowerCase()
+      })) {
+        return false
+      } else {
+        return true
+      }
+    },
     updateTicker(tickerName, price, valid = true) {
       this.tickersList.filter(ticker => ticker.name === tickerName).forEach(ticker => {
         if (ticker === this.selTicker) {
@@ -300,19 +315,22 @@ export default {
         this.graph.push(price)
     },
     addTicker() {
-      let currentTicker = {
-        name: this.input.toUpperCase(), 
-        price: '-',
-        valid: true
-        }
-      
-      this.tickersList = [...this.tickersList, currentTicker]
-      validate(currentTicker.name, this.updateTicker)
+      if (this.uniqTicker(this.input)) {
+        let currentTicker = {
+          name: this.input.toUpperCase(), 
+          price: '-',
+          valid: true
+          }
+        
+        this.tickersList = [...this.tickersList, currentTicker]
+        validate(currentTicker.name, this.updateTicker)
 
-      this.autoCompleteList = []
-      this.isUniqTicker = true
-      this.input = ''
-      this.filter = ''
+        this.autoCompleteList = []
+        this.isUniqTicker = true
+        this.input = ''
+        this.filter = ''
+      } else {
+        this.isUniqTicker = false
       }
     },
     delTicker(tickerToRemove) {
@@ -338,6 +356,11 @@ export default {
           price => 5 + ((price - minValue) * 95) / (maxValue - minValue)
         )
     },
+    test() {
+      console.log(this.uniqTicker('btc'))
+    }
+  }
+}
     // autocomplete() {
     //   if (this.input) {
     //     this.isUniqTicker = true
@@ -353,10 +376,7 @@ export default {
     //   this.input = coin.symbol
     //   this.addTicker()
     // },
-    test(){
-      close()
-    }
-}
+
 </script>
 
 <style src="./app.css" type="text/css"></style>

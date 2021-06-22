@@ -1,17 +1,21 @@
 // validation scheme
-    //validate by coin list
-        // - valid
-            // - validate by subscribe to usd
-                // - valid
-                    // - subscribe to usd
-                // - invalid 
-                    // - validate by subscribe to btc
-                        // - valid 
-                            // - subscribe to btc
-                        // - invalid
-                            // - set invalid status
-        // - invalid 
-            // - set invalid status
+// - validate by uniq in tickerList
+    // - valid 
+        // - validate by coin list
+            // - valid
+                // - validate by subscribe to usd
+                    // - valid
+                        // - subscribe to usd
+                    // - invalid 
+                        // - validate by subscribe to btc
+                            // - valid 
+                                // - subscribe to btc
+                            // - invalid
+                                // - set invalid status
+            // - invalid 
+                // - set invalid status
+    // - invalid 
+        // - refuce from add
 
 // Проблемы автодополнения
 // - При добавлени невалидного тикера, вебсокет сходит с ума
@@ -226,7 +230,6 @@ function validateByCoinList(tickerName) {
         return result
     }
 }
-
 
 window.coinList = coinList
 
